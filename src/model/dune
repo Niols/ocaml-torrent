@@ -1,0 +1,6 @@
+(library
+ (name torrent_model)
+ (public_name torrent.model)
+ (libraries sha unix torrent.ext)
+ (preprocess (pps ppx_inline_test ppx_deriving.std))
+ (inline_tests))

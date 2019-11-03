@@ -1,0 +1,6 @@
+/_build
+/*.install
+.merlin
+*.torrent
+/bin
+/lib

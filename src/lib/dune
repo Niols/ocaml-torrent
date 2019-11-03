@@ -1,0 +1,4 @@
+(library
+ (name torrent)
+ (public_name torrent)
+ (libraries torrent.ext torrent.model))

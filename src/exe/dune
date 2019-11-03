@@ -1,0 +1,4 @@
+(executable
+ (name torrent_cmd)
+ (public_name torrent)
+ (libraries torrent lwt.unix cohttp-lwt-unix))
