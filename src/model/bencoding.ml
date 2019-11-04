@@ -84,6 +84,9 @@ module IString = struct
     let r = String.sub s.str s.pos (!i - s.pos) in
     s.pos <- !i;
     r
+
+  let is_at_the_end s =
+    s.pos = String.length s.str
 end
 
 let from_string s =
@@ -95,8 +98,8 @@ let from_string s =
       IString.skip s;
       let i = IString.until 'e' s in
       IString.skip s;
-      if i = "-0" then assert false;
-      if String.length i > 1 && i.[0] = '0' then assert false;
+      if i = "-0" then failwith "Bencoding.from_string: -0 forbidden";
+      if String.length i > 1 && i.[0] = '0' then failwith "Bencoding.from_string: leading 0 forbidden";
       Some (Int (int_of_string i))
 
     | c when 48 <= Char.code c && Char.code c <= 57 ->
@@ -115,11 +118,11 @@ let from_string s =
       (* Dict. *)
       IString.skip s;
       let d = dict_from_string () in
-      if not (is_sorted_dict d) then assert false;
+      if not (is_sorted_dict d) then failwith "Bencoding.from_string: dict must be sorted";
       Some (Dict d)
 
     | 'e' -> IString.skip s; None
-    | _ -> assert false
+    | c -> failwith ("Bencoding.from_string: unexpected char: " ^ String.make 1 c)
 
   and list_from_string () =
     (* We call ourselves in a loop until we get a 'None' (the 'e' symbol). *)
@@ -132,14 +135,17 @@ let from_string s =
     | None -> []
     | Some (String k) ->
       (match from_string () with
-       | None -> assert false
+       | None -> failwith "Bencoding.from_string: dict end after key"
        | Some v -> (k, v) :: dict_from_string ())
-    | _ -> assert false
+    | _ -> failwith "Bencoding.from_string: dict key must be string"
   in
   match from_string () with
-  | None -> assert false
-  | exception _ -> assert false
-  | Some v -> v
+  | None -> failwith "Bencoding.from_string: cannot start on 'e'"
+  (* | exception exn -> raise exn *)
+  | Some v ->
+    if not (IString.is_at_the_end s) then
+      failwith "Bencoding.from_string: read finished before the end of the string";
+    v
 
 let%test _ = to_string (String "spam") = "4:spam"
 let%test _ = from_string "4:spam" = String "spam"
