@@ -6,7 +6,7 @@ build:
 	ln -sf _build/install/default/lib lib
 
 run: build test
-	bin/torrent archlinux-2019.11.01-x86_64.iso.torrent
+	bin/torrent *.torrent
 
 test: build
 	dune runtest
