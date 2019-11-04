@@ -15,17 +15,7 @@ let to_bencoding m =
   )
 
 let from_bencoding b =
-  match b with
-  | Bencoding.Dict d ->
-    (
-      let announce = List.assoc_opt "announce" d in
-      let info = List.assoc_opt "info" d in
-      match announce, info with
-      | Some (String announce), Some info ->
-        { announce ; info = Info.from_bencoding info }
-      | None, _ -> failwith "Metainfo.from_bencoding: missing key: 'announce'"
-      | _, None -> failwith "Metainfo.from_bencoding: missing key: 'info'"
-      | _, Some _ -> failwith "Metainfo.from_bencoding: wrong type for key: 'announce'"
-    )
-  | _ ->
-    failwith "Metainfo.from_bencoding: not a dictionary"
+  let open Bencoding.Getter in
+  let announce = get string ["announce"] b in
+  let info = get Info.from_bencoding ["info"] b in
+  { announce; info }

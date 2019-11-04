@@ -7,6 +7,37 @@ type t =
   | List of t list
   | Dict of (string * t) list
 
+(** {2 Getters} *)
+
+module Getter : sig
+  type 'a converter = t -> 'a
+
+  val find : string list -> t -> t option
+
+  val mem : string list -> t -> bool
+
+  val gen_get :
+    ?on_not_found:(unit -> 'b) -> ?on_conversion_failed:(unit -> 'b) ->
+    on_success:('a -> 'b) ->
+    'a converter -> string list -> t -> 'b
+
+  type 'a get_t = NotFound | ConversionFailed | Success of 'a
+
+  val get_t :
+    ?on_not_found:(unit -> 'a get_t) ->
+    ?on_conversion_failed:(unit -> 'a get_t) ->
+    ?on_success:('a -> 'a get_t) ->
+    'a converter -> string list -> t -> 'a get_t
+
+  val get :
+    ?on_not_found:(unit -> 'a) -> ?on_conversion_failed:(unit -> 'a) ->
+    'a converter -> string list -> t -> 'a
+
+  val int : int converter
+  val string : string converter
+  val list : 'a converter -> ('a list) converter
+end
+
 (** {2 Constructors & Destructors} *)
 
 val int : int -> t

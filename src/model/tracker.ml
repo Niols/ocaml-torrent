@@ -73,36 +73,15 @@ type peer =
 [@@deriving show { with_path = false }]
 
 let peer_from_bencoding b =
-  match b with
-  | Bencoding.Dict d ->
-    (
-      match List.assoc_opt "ip" d with
-      | Some (String ip) ->
-        (
-          match List.assoc_opt "port" d with
-          | Some (Int port) ->
-            (
-              match List.assoc_opt "id" d with
-              | Some (String id) ->
-                (
-                  { ip = Unix.inet_addr_of_string ip ; port ;
-                    id = Some (PeerId.from_string id) }
-                )
-              | None ->
-                (
-                  { ip = Unix.inet_addr_of_string ip ; port ;
-                    id = None }
-                )
-              | Some _ -> failwith "Tracker.peer_from_bencoding: wrong type for key: 'id'"
-            )
-          | Some _ -> failwith "Tracker.peer_from_bencoding: wrong type for key: 'port'"
-          | None -> failwith "Tracker.peer_from_bencoding: missing key: 'port'"
-        )
-      | Some _ -> failwith "Tracker.peer_from_bencoding: wrong type for key: 'ip'"
-      | None -> failwith "Tracker.peer_from_bencoding: missing key: 'ip'"
-    )
-  | _ ->
-    failwith "Tracker.peer_from_bencoding: not a dictionary"
+  let open Bencoding.Getter in
+  let ip = get (string ||> Unix.inet_addr_of_string) ["ip"] b in
+  let port = get int ["port"] b in
+  let id =
+    gen_get (string ||> PeerId.from_string) ["id"] b
+      ~on_not_found:(fun () -> None)
+      ~on_success:(fun id -> Some id)
+  in
+  { ip ; port ; id }
 
 type response =
   | Failure of string
@@ -110,32 +89,13 @@ type response =
 [@@deriving show { with_path = false }]
 
 let response_from_bencoding b =
-  match b with
-  | Bencoding.Dict d ->
-    (
-      match List.assoc_opt "failure reason" d with
-      | Some (String reason) ->
-        Failure reason
-      | Some _ -> failwith "Tracker.response_from_bencoding: wrong type for key: 'failure reason'"
-      | None ->
-        (
-          match List.assoc_opt "interval" d with
-          | Some (Int interval) ->
-            (
-              match List.assoc_opt "peers" d with
-              | Some (List peers) ->
-                (
-                  Success {
-                    interval ;
-                    peers = List.map peer_from_bencoding peers ;
-                  }
-                )
-              | Some _ -> failwith "Tracker.response_from_bencoding: wrong type for key: 'peers'"
-              | None -> failwith "Tracker.response_from_bencoding: missing key: 'peers'"
-            )
-          | Some _ -> failwith "Tracker.response_from_bencoding: wrong type for key: 'interval'"
-          | None -> failwith "Tracker.response_from_bencoding: missing key: 'interval'"
-        )
+  let open Bencoding.Getter in
+  gen_get
+    string ["failure reason"] b
+    ~on_success:(fun s -> Failure s)
+    ~on_not_found:(
+      fun () ->
+        let interval = get int ["interval"] b in
+        let peers = get (list peer_from_bencoding) ["peers"] b in
+        (Success { interval ; peers }: response)
     )
-  | _ ->
-    failwith "Tracker.response_from_bencoding: not a dictionary"

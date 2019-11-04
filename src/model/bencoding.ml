@@ -182,3 +182,74 @@ let from_file path =
     Buffer.contents buf
   in
   from_string content
+
+module Getter = struct
+  type 'a converter = t -> 'a
+
+  let rec find path b =
+    match path with
+    | [] -> Some b
+    | key :: path ->
+      match b with
+      | Dict dict ->
+        (
+          match List.assoc_opt key dict with
+          | Some b' -> find path b'
+          | None -> None
+        )
+      | _ -> None
+
+  let mem path b =
+    find path b <> None
+
+  (* FIXME: tout passer en Ok|Error *)
+
+  let gen_get
+      ?(on_not_found=fun () -> failwith "Bencoding.Getter.gen_get: not found")
+      ?(on_conversion_failed=fun () -> failwith "Bencoding.Getter.gen_get: conversion failed")
+      ~on_success
+      converter path b
+    =
+    match find path b with
+    | None -> on_not_found ()
+    | Some found ->
+      let converted =
+        try Ok (converter found)
+        with Failure _ -> Error (on_conversion_failed ())
+      in
+      match converted with
+      | Ok converted -> on_success converted
+      | Error error -> error
+
+  type 'a get_t = NotFound | ConversionFailed | Success of 'a
+
+  let get_t
+      ?(on_not_found=fun () -> NotFound)
+      ?(on_conversion_failed=fun () -> ConversionFailed)
+      ?(on_success=fun v -> Success v)
+      converter path b
+    =
+    gen_get
+      ~on_not_found ~on_conversion_failed ~on_success
+      converter path b
+
+  let get
+      ?on_not_found ?on_conversion_failed
+      converter path b
+    =
+    gen_get
+      ?on_not_found ?on_conversion_failed ~on_success:(fun x -> x)
+      converter path b
+
+  let int = function
+    | Int i -> i
+    | _ -> failwith "Bencoding.Getter.int"
+
+  let string = function
+    | String s -> s
+    | _ -> failwith "Bencoding.Getter.string"
+
+  let list conv = function
+    | List l -> List.map conv l
+    | _ -> failwith "Bencoding.Getter.list"
+end
